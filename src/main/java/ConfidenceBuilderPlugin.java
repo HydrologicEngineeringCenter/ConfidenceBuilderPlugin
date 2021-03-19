@@ -173,34 +173,6 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
             varListList = myOutputTracker.getVarListList();
             List<ModelAlternative> models = myFRMSimulation.getAllModelAlternativeList();
 
-
-            //Set the output location, and create a directory there if one does not already exist -- This is Will's diagnostics. May not be necessary for compute.
-            String outputLocationsFilePath = myFRMSimulation.getProject().getProjectDirectory() + "\\Weights_TextFiles\\outputlocations.txt";
-            File destFileDirPath = new File(myFRMSimulation.getProject().getProjectDirectory() + "\\Weights_TextFiles\\");
-            if(!destFileDirPath.exists()){
-                destFileDirPath.mkdirs();
-            }
-
-            //Try to write the output variables to the outputlocations textfile. If you can't, throw an exception -- Also part of Will's Diagnostics
-            try{
-                BufferedWriter bw = new BufferedWriter(new FileWriter(outputLocationsFilePath));
-                for(int i = 0;i<varListList.size();i++){
-                    List<OutputVariableImpl> variablesForModel = varListList.get(i);
-                    if (variablesForModel != null) {
-                        int size = variablesForModel.size();
-                        for (int j = 0; j < size; j++) {
-                            OutputVariableImpl v = variablesForModel.get(j);
-                            bw.write(v.getName() + "\n");
-                        }
-                    }
-                }
-                bw.flush();
-                bw.close();
-            } catch (IOException ex) {
-                Logger.getLogger(ConfidenceBuilderPlugin.class.getName()).log(Level.SEVERE, null, ex);
-            }
-
-
             for(int i = 0;i<varListList.size();i++){ //for each variable
                 ModelAlternative modelAlt = models.get(i);//get the model it comes from
                 List<OutputVariableImpl> variablesForModel = varListList.get(i); //get the output variables associated with that model
