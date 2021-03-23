@@ -10,7 +10,6 @@ import com.rma.model.ManagerProxy;
 import com.rma.model.Project;
 import hec.heclib.dss.DSSPathname;
 import hec.io.PairedDataContainer;
-import hec.model.OutputVariable;
 import hec2.plugin.AbstractPlugin;
 import hec2.plugin.model.ModelAlternative;
 import hec2.wat.client.WatFrame;
@@ -23,7 +22,6 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -193,11 +191,11 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
                         //if the pdc doesnt have a record name yet, build it one, and give it to it.
                         if (pdc.fullName == null || pdc.fullName.isEmpty()) {
                             DSSPathname path = myOutputTracker.buildDSSPathname(myFRMSimulation, modelAlt, myOutputVariable);
-                            path.setCollectionSequence(0); //This Zero freaks me out. What's it doing here?
+                            path.setCollectionSequence(0);
                             pdc.fullName = path.getPathname();
                         }else{ }
 
-                        //Write to console where the files are gonna be saved, and what they're gonna be called.
+                        //Write to console where the files are gonna be saved, and what they're gonna be called. A Diagnostic
                         myWatFrame.addMessage("Saving to: " + pdc.fileName);
                         myWatFrame.addMessage("It is called: " + pdc.fullName);
 
@@ -219,35 +217,24 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
                         for(PairedDataContainer pdci : pdcList){//build the frequency output
                             freqVar.setPairedDataContainer(pdci);
                             ValueBinIncrementalWeight[] tmp = saveVariableFrequencyRealization(freqVar,pdci,myFRMSimulation,myProperties.getBinStartWeight(),myProperties.getBinEndWeights(),myProperties.getBinWeights(),realization);
-                            //saveVariableFrequencyRealization_Thin(freqVar,pdci,myFRMSimulation,startProb,endProb,weights,realization);
-                            if(tmp==null){
+                            if(tmp==null) {
                                 myWatFrame.addMessage("aborting frequency curve calculation.");
                                 return false;
                             }
-                            
                             //sort it to be ascending for the thinned work...
-                            //Arrays.sort(tmp);
+                            Arrays.sort(tmp);
                             allData.add(tmp);
                             realization++;
                             myWatFrame.addMessage(freqVar._name + " realization " + allData.size() + " computed.");
-
                         }
-                        //double[][] allData = getVariableAllFrequencyData(freqVar,myFRMSimulation);
-                        //saveVariableFrequencyPercent(freqVar, allData,myFRMSimulation); //5 and 95 percent
 
                         ValueBinIncrementalWeight[] fullCurve = saveVariableFrequencyFull(freqVar, allData, myFRMSimulation,myProperties.getBinEndWeights(),myProperties.getBinStartWeight(),myProperties.getBinWeights());
-                        if(fullCurve!=null){
+                        if(allData!=null){
                             if(_XOrds!=null){
-                                saveVariableFrequencyConfidenceLimits(freqVar, fullCurve, myFRMSimulation,myProperties.getBinStartWeight(),myProperties.getBinEndWeights(),myProperties.getBinWeights());
+                                saveVariableFrequencyConfidenceLimits(freqVar, allData, myFRMSimulation,myProperties.getBinStartWeight(),myProperties.getBinEndWeights(),myProperties.getBinWeights());
                                 //write method to sort valuebinincremetalweight, xcoords cumulitive incrimental weight, y cords will be values
                             }
                         
-                        }else{
-                            //myWatFrame.addMessage("Simulation thinning didnt work.");
-                            return false;
-                        }
-                        if(fullCurve!=null){
-                        //saveVariableFrequencyFull_Thin(freqVar, fullCurve, myFRMSimulation,endProb,startProb,weights);
                         }else{
                             //myWatFrame.addMessage("Simulation thinning didnt work.");
                             return false;
@@ -266,88 +253,107 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
     private ValueBinIncrementalWeight[] saveVariableFrequencyRealization(OutputVariableImpl vv, PairedDataContainer outPdc, FrmSimulation frm,Double startProb, double endProb, List<Double> weights, int real){
         //BUILD DATA
         int newOrdinates = frm.getYearsInRealization();
-        double[] newXOrd = new double[newOrdinates];
+        double[] plottingPosArray = new double[newOrdinates];
         int numlifecycles = frm.getNumberLifeCycles();
         int numreals = frm.getNumberRealizations();
 
-        int numOrdinates = outPdc.numberOrdinates;//should be number of events in the lifecycles?
-        int numCurves = outPdc.numberCurves; //should be nubmer of lifecycles
+        int numEventsPLifecycleDSS = outPdc.numberOrdinates;//should be number of events in the lifecycles?
+        int numLifeCyclesDSS = outPdc.numberCurves; //should be number of lifecycles
 
-        //Checking for errors in Data--
-        if(numCurves!=(numlifecycles/numreals)){
-            frm.addMessage("there are more curves than lifecycles per real, ignoring old data");
-            numCurves = numlifecycles/numreals;
-        }
-        int realsPerWeightList = 1;
-        if(numCurves!=weights.size()){
-            frm.addMessage("Weight count does not match lifecycle count");
-            double val = (double)weights.size()/(double)numCurves;
-            if((val-java.lang.Math.floor(val))>0){
-                frm.addMessage("Weight count is not evenly divisible by lifecycle count");
-                return null;
-            }else{
-                realsPerWeightList = (int)val;
-            }
-        }
-
-        //frm.addMessage("There are " + realsPerWeightList + " realizations per the list of weights");
+        //total weight should equal one now.
         double totWeight = startProb;
         totWeight+=endProb;
-        for (int k = 0; k < weights.size(); k++) { 
+        for (int k = 0; k < weights.size(); k++) {
             totWeight+=weights.get(k);
         }
-        int availOrdinates = numOrdinates * numCurves;
-        double[] newYOrd = new double[Math.max(availOrdinates, newOrdinates)];
+
+        //Checking for errors in Data--
+        if(numLifeCyclesDSS!=(numlifecycles/numreals)){
+            frm.addMessage("there are more curves than lifecycles per real. Aborting");
+            return null;
+        }
+        if(numLifeCyclesDSS!=weights.size()){
+            frm.addMessage("Weight count does not match lifecycle count");
+            return null;
+        }
+        if(totWeight != 1) {
+            frm.addMessage("Weight count does not match lifecycle count");
+            return null;
+        }
+       // Done Checking--
+
+        //put all the events into a a single array, representing the entire realization as VBIW.
+        int eventsInAReal = numEventsPLifecycleDSS * numLifeCyclesDSS; //events in a realization.
+        double[] eventValuesArray = new double[eventsInAReal];
         double cumWeight = endProb;
-        ValueBinIncrementalWeight[] data= new ValueBinIncrementalWeight[Math.max(availOrdinates, newOrdinates)];
-        int shifter = real % realsPerWeightList;
-        for (int curve = 0; curve < numCurves; curve++) {
-            double[] yOrd = outPdc.yOrdinates[curve];//this is the number of lifecycles
-            for (int ord = 0; ord < numOrdinates; ord++) {
-                int newIdx = curve * numOrdinates + ord;//this is putting the events in a master realization list in order
-                data[newIdx] = new ValueBinIncrementalWeight(yOrd[ord],(shifter*(numCurves))+ curve,weights.get((shifter*(numCurves))+ curve)/numOrdinates, real);
+        ValueBinIncrementalWeight[] data= new ValueBinIncrementalWeight[eventsInAReal];
+        for (int lifecycleNumber = 0; lifecycleNumber < numLifeCyclesDSS; lifecycleNumber++) { //lifecycle loop
+            double[] events = outPdc.yOrdinates[lifecycleNumber];
+            for (int eventNumberInLifeCycle = 0; eventNumberInLifeCycle < numEventsPLifecycleDSS; eventNumberInLifeCycle++) { // event loop
+                int eventIndex = lifecycleNumber * numEventsPLifecycleDSS + eventNumberInLifeCycle;
+                data[eventIndex] = new ValueBinIncrementalWeight(events[eventNumberInLifeCycle], lifecycleNumber,weights.get(lifecycleNumber/numEventsPLifecycleDSS),real);
             }
         }
-        
+
+        //Sort the array
         Arrays.sort(data);
         ArrayUtils.reverse(data);
-        //String s = "Value, Bin, EventNumber\n";
+
+        //Convert that VBIW array into a double[] of values, and a double[] of plotting position
         for(int i = 0; i<data.length;i++){
-            newYOrd[i] = data[i].getValue();
+            eventValuesArray[i] = data[i].getValue();
             cumWeight += data[i].getIncrimentalWeight();
-            newXOrd[i] = (cumWeight - (data[i].getIncrimentalWeight())/2)/totWeight;//plotting position
-            data[i].setPlottingPosition(newXOrd[i]);
+            plottingPosArray[i] = (cumWeight - (data[i].getIncrimentalWeight())/2)/totWeight;//plotting position array I don't understand
+            data[i].setPlottingPosition(plottingPosArray[i]); //saving the plotting position into the VBIW object
         }
 
-        //SAVE PDC
+        //SAVE PDC with all data------
         PairedDataContainer freqPdc = vv.getPairedDataContainer();
         freqPdc.numberOrdinates = newOrdinates;
         freqPdc.numberCurves = 1;
-        freqPdc.xOrdinates = newXOrd;
-        freqPdc.yOrdinates = new double[][]{newYOrd};
+        freqPdc.xOrdinates = plottingPosArray;
+        freqPdc.yOrdinates = new double[][]{eventValuesArray};
         freqPdc.xparameter = "Probability";
         freqPdc.labelsUsed = true;
         freqPdc.labels = new String[1];
 
-        final String sequence = DSSPathname.getCollectionSequence(outPdc.fullName); // first is 000000
+        final String sequence = DSSPathname.getCollectionSequence(freqPdc.fullName); // first is 000000
         Integer realization = Integer.valueOf(sequence);
         realization++;  // plus one b/c we are going to show this to the user.
-
         freqPdc.labels[0] = "Realization ".concat(realization.toString());
 
+        //SAVE PDC with thin data-------
+        //Thin this before we save it out
+        Line myLine = new Line(plottingPosArray,eventValuesArray);
+        Line myThinLine = LineThinner.DouglasPeukerReduction(myLine,.01);
 
+        //SAVE THIN PDC (change the d part of the pathname)
+        PairedDataContainer thinFreqPdc = vv.getPairedDataContainer();
+        thinFreqPdc.numberOrdinates = myThinLine.getVerticesCount();
+        thinFreqPdc.numberCurves = 1;
+        thinFreqPdc.xOrdinates = myThinLine.getXords();
+        thinFreqPdc.yOrdinates = new double[][]{myThinLine.getYords()};
+        thinFreqPdc.xparameter = "Probability";
+        thinFreqPdc.labelsUsed = true;
+        thinFreqPdc.labels = new String[1];
+        thinFreqPdc.labels[0] = "Realization ".concat(realization.toString());
+        DSSPathname pathname = new DSSPathname(thinFreqPdc.fullName);
+        pathname.setDPart("Realization Thin");
+        thinFreqPdc.fullName = pathname.getPathname(false);
+
+        //Save PDC
         int zeroOnSuccess = DssFileManagerImpl.getDssFileManager().write(freqPdc);
         if (zeroOnSuccess != 0) {
-                frm.addWarningMessage("Failed to save PD Output Variable Frequency to " + outPdc.fileName + ":" + outPdc.fullName + " rv=" + zeroOnSuccess);
+                frm.addWarningMessage("Failed to save PD Output Variable Frequency to " + freqPdc.fileName + ":" + freqPdc.fullName + " rv=" + zeroOnSuccess);
         }
+        //Save Thin PDC
+        int anotherZeroOnSuccess = DssFileManagerImpl.getDssFileManager().write(thinFreqPdc);
+        if (anotherZeroOnSuccess != 0) {
+            frm.addWarningMessage("Failed to save PD Output Variable Frequency to " + thinFreqPdc.fileName + ":" + thinFreqPdc.fullName + " rv=" + zeroOnSuccess);
+        }
+
         return data;
     }
-        private String removeSpecialChar(String input){
-            input = input.replace('/', '_');
-            input = input.replace('\\', '_');
-            input = input.replace('?', '_');
-            return input;
-        }
     protected ValueBinIncrementalWeight[] saveVariableFrequencyFull(OutputVariableImpl vv, List<ValueBinIncrementalWeight[]> allData, FrmSimulation frm, double endProb, double startProb, List<Double> weights) {
         int colSize = allData == null ? 0 : allData.size();//number of realizations?
         int numOrds = colSize <= 0 ? 0 : allData.get(0).length;
@@ -438,15 +444,16 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
 
         return fullCurve;
     }
-    public void saveVariableFrequencyConfidenceLimits(OutputVariableImpl vv, ValueBinIncrementalWeight[] fullCurve, FrmSimulation frm, double endProb, double startProb, List<Double> weights){
-        //sort by realization (ascending)
-        ValueBinIncrementalWeight.setSort(false);
+    public void saveVariableFrequencyConfidenceLimits(OutputVariableImpl vv, List<ValueBinIncrementalWeight[]> allData, FrmSimulation frm, double endProb, double startProb, List<Double> weights){
+/*        //sort by realization (ascending)
+        ValueBinIncrementalWeight.setSortByValue(false);
         Arrays.sort(fullCurve);
+        //Consider just referencing All data, rather than sorting full curve***
+
         //separate into bin arrays.
         List<ValueBinIncrementalWeight[]> realizations = new ArrayList<>();
         int real = fullCurve[0].getRealizationNumber();
         int numEventsPerReal =0;
-        //List<Integer> proxys = Arrays.asList(62, 87, 125, 175, 225, 262, 287, 337, 375, 425, 475, 512, 550, 612, 637, 675, 725, 775, 825, 862, 887, 925, 962, 999);
         double[] maxs = new double[_XOrds.size()];
         double[] mins = new double[_XOrds.size()];
         for(ValueBinIncrementalWeight event: fullCurve){
@@ -456,11 +463,12 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
                 break;
             }
         }
+
         realizations.add(new ValueBinIncrementalWeight[numEventsPerReal]);
         int currentEvent = 0;
         
         //sort by value
-        ValueBinIncrementalWeight.setSort(true);
+        ValueBinIncrementalWeight.setSortByValue(true);
         for(int i = 0; i<_XOrds.size();i++){
             maxs[i] = Double.MIN_VALUE;
             mins[i] = Double.MAX_VALUE;
@@ -513,22 +521,71 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
         } catch (IOException ex) {
             Logger.getLogger(ConfidenceBuilderPlugin.class.getName()).log(Level.SEVERE, null, ex);
         }
-        
-        
-        
+ */
+
+        //Step1 make sure the arrays in All data are sorted by value
+
+
+        double[] maxs = new double[weights.size()];
+        double[] mins = new double[weights.size()];
+        for(int i = 0; i<weights.size();i++){
+            maxs[i] = Double.MIN_VALUE;
+            mins[i] = Double.MAX_VALUE;
+        }
+        for(ValueBinIncrementalWeight[] realization: allData){
+            Arrays.sort(realization);
+            int i = 0;
+            for(ValueBinIncrementalWeight event: realization){
+                if(maxs[i]<event.getValue()){
+                    maxs[i] = event.getValue();
+                }
+                if(mins[i]>event.getValue()){
+                    mins[i] = event.getValue();
+                }
+                i++;
+            }
+        }
+        //now max a mins represents the maximum value and minimum value for each realization
+
+        for(ValueBinIncrementalWeight[] realization: allData){
+            for(int i = 0; i<realization.length; i++){
+                if(i==0){
+                    realization[i].setPlottingPosition(startProb);
+                }
+                else{
+                    realization[i].setPlottingPosition(realization[i-1].getPlottingPosition()+weights.);
+                }
+
+            }
+        }
+
+
+        /*
+        Step1: Create an array of min and maxes the size of the Vertical Slices [realdata for 7 and beyond likely just needs to be subsituted with allData
+        2.  coffee
+        3. Need to make sure all the arrays in All data are sorted by value.
+        4. Make sure incremental weights have been cumulated between all of them.
+        5. Iterate through the realizations to set maxes and mins based on the cumulated frequency fo all data.
+        6. Create a list of inline histograms for each vertical slice.
+        7. (populate the data in this location using interpolation)
+        8. Test for convergence
+        9. Compute confidence intervals.
+        10. Write conf intervals to disc
+
+         */
         //interpolate to find ploting position of interest and bin
-        List<HistDist> verticalSlices = new ArrayList<>();
+        List<HistDist> verticalSlices = new ArrayList<>(); //This is step 6
         int ordcount= 0;
         int bincount = (int)Math.ceil(Math.pow(2.0*realizations.size(),1/3));
         if(bincount<20){bincount=20;}
         
         for(Double d: _XOrds){
             int failureCount=0;//          
-            verticalSlices.add(new HistDist(bincount,mins[ordcount],maxs[ordcount]));//how to intelligently get min and max for this prob range?
+            verticalSlices.add(new HistDist(bincount,mins[ordcount],maxs[ordcount]));//how to intelligently get min and max for this prob range? This is actaully step 6
             //frm.addMessage("Probability: " + d + " with bin Max: " + maxs[ordcount] + " and Min: " + mins[ordcount]);
             ValueBinIncrementalWeight prevVal = null;
             int realcount = 0;
-            for(ValueBinIncrementalWeight[] realdata: realizations){
+            for(ValueBinIncrementalWeight[] realdata: realizations){ //This block is step 7
                 realcount++;
                 boolean foundVal = false;
                 for(ValueBinIncrementalWeight obj: realdata ){
@@ -552,7 +609,7 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
                                 failureCount++;
                             }else{
                                 if(realcount>100){
-                                    verticalSlices.get(ordcount).testForConvergence(.05, .95, .1, .0001);
+                                    verticalSlices.get(ordcount).testForConvergence(.05, .95, .1, .0001); //Step 8 Just needs to be done at the end. Not iteratively, could be line 603
                                 }
                             }
                             break;
@@ -568,18 +625,18 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
             }
             ordcount++;  
         }
-        double[] xordinates = new double[_XOrds.size()];
+        double[] xordinates = new double[_XOrds.size()]; // This is the x values for confidence limits. unboxing list of double to array of double.
         for(int i = 0; i<_XOrds.size();i++){
             xordinates[i] = _XOrds.get(i);
         }
                 //SAVE FULL PDCs
             
-        for(double o : _CI_Vals){
+        for(double o : _CI_Vals){ //Computing the confidence interval Step9
             double[] vals = new double[_XOrds.size()];
             for(int i= 0; i<verticalSlices.size();i++){
                 vals[i] = verticalSlices.get(i).invCDF(o);
             }
-            PairedDataContainer freqPdc = vv.getFullFrequencyPairedData();
+            PairedDataContainer freqPdc = vv.getFullFrequencyPairedData();//write to disk Step 10
             freqPdc.numberOrdinates = _XOrds.size();
             freqPdc.numberCurves = 1;
             freqPdc.xOrdinates = xordinates;
@@ -589,7 +646,7 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
             freqPdc.labels = new String[1];
             freqPdc.labels[0] = "Confidence Interval - " + o;
             DSSPathname pathname = new DSSPathname(freqPdc.fullName);
-            pathname.setDPart(o + " Exceedance Val");
+            pathname.setDPart(o + " Confidence Limit");
             freqPdc.fullName = pathname.getPathname(true);
             int zeroOnSuccess = DssFileManagerImpl.getDssFileManager().write(freqPdc);
             if (zeroOnSuccess != 0) {
