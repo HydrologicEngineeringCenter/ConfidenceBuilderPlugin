@@ -38,7 +38,7 @@ public class ValueBinIncrementalWeight implements Comparable<ValueBinIncremental
     public int getBin(){
         return _bin;
     }
-    public static void setSort(boolean byValue){
+    public static void setSortByValue(boolean byValue){
         _sortByValue = byValue;
     }
     @Override
