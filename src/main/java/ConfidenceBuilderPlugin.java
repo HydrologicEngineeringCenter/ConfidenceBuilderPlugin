@@ -43,8 +43,6 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
     private static final String _pluginVersion = "1.0.0";
     private static String _simulationName = "";
     private static final String _propertiesPath = "/cbp/ConfidenceBuilder.props";
-    private static List<Double> _XOrds;
-    private static List<Double> _CI_Vals;
 /**
      * @param args the command line arguments*/
 
@@ -230,8 +228,8 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
 
                         ValueBinIncrementalWeight[] fullCurve = saveVariableFrequencyFull(freqVar, allData, myFRMSimulation,myProperties.getBinEndWeights(),myProperties.getBinStartWeight(),myProperties.getBinWeights());
                         if(allData!=null){
-                            if(_XOrds!=null){
-                                saveVariableFrequencyConfidenceLimits(freqVar, allData, myFRMSimulation,myProperties.getBinStartWeight(),myProperties.getBinEndWeights(),myProperties.getBinWeights());
+                            if(myProperties.getCI_Values()!=null){
+                                saveVariableFrequencyConfidenceLimits(freqVar, allData, myFRMSimulation,myProperties.getBinStartWeight(),myProperties.getBinEndWeights(),myProperties.getBinWeights(), myProperties.getCI_Values());
                                 //write method to sort valuebinincremetalweight, xcoords cumulitive incrimental weight, y cords will be values
                             }
                         
@@ -355,35 +353,35 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
         return data;
     }
     protected ValueBinIncrementalWeight[] saveVariableFrequencyFull(OutputVariableImpl vv, List<ValueBinIncrementalWeight[]> allData, FrmSimulation frm, double endProb, double startProb, List<Double> weights) {
-        int colSize = allData == null ? 0 : allData.size();//number of realizations?
-        int numOrds = colSize <= 0 ? 0 : allData.get(0).length;
+        int numReals = allData == null ? 0 : allData.size();//number of realizations?
+        int numEventsinReal = numReals <= 0 ? 0 : allData.get(0).length;// What's happening here
 
         int realsPerWeightList = 1;
         int realizations = frm.getNumberRealizations();
-        int lifecycles = frm.getNumberLifeCycles();
-        lifecycles = lifecycles/realizations;
-        if(lifecycles!=weights.size()){
-            frm.addMessage("Weight count does not match lifecycle count");
-            double val = (double)weights.size()/(double)lifecycles;
-            if((val-java.lang.Math.floor(val))>0){
-                frm.addMessage("Weight count is not evenly divisible by lifecycle count");
-                return null;
-            }else{
-                realsPerWeightList = (int)val;
-            }
-        }
-        frm.addMessage("There are " + realsPerWeightList + " realizations per the list of weights");
-        int fullSize = colSize * numOrds;
+        int totalLifecycles = frm.getNumberLifeCycles();
+        int lifecyclesInReal = totalLifecycles/realizations;
         double totWeight = startProb;
         totWeight+=endProb;
-        for (int k = 0; k < weights.size(); k++) { 
+        for (int k = 0; k < weights.size(); k++) {
             totWeight+=weights.get(k);
         }
-        
+
+        //Data Check
+        if(totWeight != 1){
+            frm.addMessage("Weight count does not add to 1");
+        }
+        if(lifecyclesInReal!=weights.size()){
+            frm.addMessage("Weight count does not match lifecycle count");
+            return null;
+        }
+        //Done Checking
+
+        int fullSize = numReals * numEventsinReal;
         ValueBinIncrementalWeight[] fullCurve = new ValueBinIncrementalWeight[fullSize];
-        for (int i = 0; i < colSize; i++) {
-                ValueBinIncrementalWeight[] colData = allData.get(i);
-                System.arraycopy(colData, 0, fullCurve, i * numOrds, numOrds);
+
+        for (int i = 0; i < numReals; i++) {
+                ValueBinIncrementalWeight[] tmpReal = allData.get(i);
+                System.arraycopy(tmpReal, 0, fullCurve, i * numEventsinReal, numEventsinReal);
         }
         allData = null;
         //sort the full curve
@@ -394,11 +392,10 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
         double[] xOrdinates = new double[fullSize];
         double[] yOrdinates = new double[fullSize];
         double cumWeight = endProb;
-        int scaleFactor =realizations/realsPerWeightList;
 
         for (int k = 0; k < fullSize; k++) {
-            cumWeight += fullCurve[k].getIncrimentalWeight()/scaleFactor;
-            xOrdinates[k] = (cumWeight-((fullCurve[k].getIncrimentalWeight()/scaleFactor)/2))/totWeight;
+            cumWeight += fullCurve[k].getIncrimentalWeight();
+            xOrdinates[k] = (cumWeight-((fullCurve[k].getIncrimentalWeight())/2))/totWeight;
             yOrdinates[k] = fullCurve[k].getValue();
         }
 
@@ -444,7 +441,7 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
 
         return fullCurve;
     }
-    public void saveVariableFrequencyConfidenceLimits(OutputVariableImpl vv, List<ValueBinIncrementalWeight[]> allData, FrmSimulation frm, double endProb, double startProb, List<Double> weights){
+    public void saveVariableFrequencyConfidenceLimits(OutputVariableImpl vv, List<ValueBinIncrementalWeight[]> allData, FrmSimulation frm, double endProb, double startProb, List<Double> weights,List<Double> confidenceLimitLocations ){
 /*        //sort by realization (ascending)
         ValueBinIncrementalWeight.setSortByValue(false);
         Arrays.sort(fullCurve);
@@ -547,19 +544,6 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
         }
         //now max a mins represents the maximum value and minimum value for each realization
 
-        for(ValueBinIncrementalWeight[] realization: allData){
-            for(int i = 0; i<realization.length; i++){
-                if(i==0){
-                    realization[i].setPlottingPosition(startProb);
-                }
-                else{
-                    realization[i].setPlottingPosition(realization[i-1].getPlottingPosition()+weights.);
-                }
-
-            }
-        }
-
-
         /*
         Step1: Create an array of min and maxes the size of the Vertical Slices [realdata for 7 and beyond likely just needs to be subsituted with allData
         2.  coffee
@@ -576,16 +560,15 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
         //interpolate to find ploting position of interest and bin
         List<HistDist> verticalSlices = new ArrayList<>(); //This is step 6
         int ordcount= 0;
-        int bincount = (int)Math.ceil(Math.pow(2.0*realizations.size(),1/3));
+        int bincount = (int)Math.ceil(Math.pow(2.0*allData.size(),1/3));
         if(bincount<20){bincount=20;}
         
-        for(Double d: _XOrds){
+        for(Double d:confidenceLimitLocations ){
             int failureCount=0;//          
-            verticalSlices.add(new HistDist(bincount,mins[ordcount],maxs[ordcount]));//how to intelligently get min and max for this prob range? This is actaully step 6
-            //frm.addMessage("Probability: " + d + " with bin Max: " + maxs[ordcount] + " and Min: " + mins[ordcount]);
+            verticalSlices.add(new HistDist(bincount,mins[ordcount],maxs[ordcount]));// This is actaully step 6
             ValueBinIncrementalWeight prevVal = null;
             int realcount = 0;
-            for(ValueBinIncrementalWeight[] realdata: realizations){ //This block is step 7
+            for(ValueBinIncrementalWeight[] realdata: allData){ //This block is step 7
                 realcount++;
                 boolean foundVal = false;
                 for(ValueBinIncrementalWeight obj: realdata ){
@@ -625,21 +608,21 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
             }
             ordcount++;  
         }
-        double[] xordinates = new double[_XOrds.size()]; // This is the x values for confidence limits. unboxing list of double to array of double.
-        for(int i = 0; i<_XOrds.size();i++){
-            xordinates[i] = _XOrds.get(i);
+        double[] locations = new double[confidenceLimitLocations.size()]; // This is the x values for confidence limits. unboxing list of double to array of double.
+        for(int i = 0; i<confidenceLimitLocations.size();i++){
+            locations[i] = confidenceLimitLocations.get(i);
         }
                 //SAVE FULL PDCs
             
-        for(double o : _CI_Vals){ //Computing the confidence interval Step9
-            double[] vals = new double[_XOrds.size()];
+        for(double o : confidenceLimitLocations){ //Computing the confidence interval Step9
+            double[] vals = new double[confidenceLimitLocations.size()];
             for(int i= 0; i<verticalSlices.size();i++){
                 vals[i] = verticalSlices.get(i).invCDF(o);
             }
             PairedDataContainer freqPdc = vv.getFullFrequencyPairedData();//write to disk Step 10
-            freqPdc.numberOrdinates = _XOrds.size();
+            freqPdc.numberOrdinates = locations.length;
             freqPdc.numberCurves = 1;
-            freqPdc.xOrdinates = xordinates;
+            freqPdc.xOrdinates = locations;
             freqPdc.yOrdinates = new double[][]{vals};
             freqPdc.xparameter = "Probability";
             freqPdc.labelsUsed = true;
