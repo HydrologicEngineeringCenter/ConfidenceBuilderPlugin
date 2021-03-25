@@ -1,14 +1,21 @@
 
 public class Point {
     //fields
-    private final double _x;
-    private final double _y;
+    private double _x;
+    private double _y;
     //getters
     public double getX() {
         return _x;
     }
     public double getY() {
         return _y;
+    }
+    //setters
+    public void setX(double newx){
+        _x = newx;
+    }
+    public void setY(double newy){
+        _y = newy;
     }
     //constructor
     public Point(double x, double y){
