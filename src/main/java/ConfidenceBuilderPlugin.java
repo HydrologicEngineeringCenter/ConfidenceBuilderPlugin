@@ -219,11 +219,11 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
                                 myWatFrame.addMessage("aborting frequency curve calculation.");
                                 return false;
                             }
-                            //sort it to be ascending for the thinned work...
+                            //sort it to be ascending for the thinned work... //this is suspicious. shoudl already be sorted from the previous method
                             Arrays.sort(tmp);
                             allData.add(tmp);
                             realization++;
-                            myWatFrame.addMessage(freqVar._name + " realization " + allData.size() + " computed.");
+                            myWatFrame.addMessage(freqVar._name + " realization " + realization + " computed.");
                         }
 
                         ValueBinIncrementalWeight[] fullCurve = saveVariableFrequencyFull(freqVar, allData, myFRMSimulation,myProperties.getBinEndWeights(),myProperties.getBinStartWeight(),myProperties.getBinWeights());
@@ -250,11 +250,8 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
 
     private ValueBinIncrementalWeight[] saveVariableFrequencyRealization(OutputVariableImpl vv, PairedDataContainer outPdc, FrmSimulation frm,Double startProb, double endProb, List<Double> weights, int real){
         //BUILD DATA
-        int newOrdinates = frm.getYearsInRealization();
-        double[] plottingPosArray = new double[newOrdinates];
         int numlifecycles = frm.getNumberLifeCycles();
         int numreals = frm.getNumberRealizations();
-
         int numEventsPLifecycleDSS = outPdc.numberOrdinates;//should be number of events in the lifecycles?
         int numLifeCyclesDSS = outPdc.numberCurves; //should be number of lifecycles
 
@@ -274,22 +271,17 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
             frm.addMessage("Weight count does not match lifecycle count");
             return null;
         }
-        if(totWeight != 1) {
-            frm.addMessage("Weight count does not match lifecycle count");
-            return null;
-        }
        // Done Checking--
 
         //put all the events into a a single array, representing the entire realization as VBIW.
         int eventsInAReal = numEventsPLifecycleDSS * numLifeCyclesDSS; //events in a realization.
         double[] eventValuesArray = new double[eventsInAReal];
-        double cumWeight = endProb;
         ValueBinIncrementalWeight[] data= new ValueBinIncrementalWeight[eventsInAReal];
         for (int lifecycleNumber = 0; lifecycleNumber < numLifeCyclesDSS; lifecycleNumber++) { //lifecycle loop
             double[] events = outPdc.yOrdinates[lifecycleNumber];
             for (int eventNumberInLifeCycle = 0; eventNumberInLifeCycle < numEventsPLifecycleDSS; eventNumberInLifeCycle++) { // event loop
                 int eventIndex = lifecycleNumber * numEventsPLifecycleDSS + eventNumberInLifeCycle;
-                data[eventIndex] = new ValueBinIncrementalWeight(events[eventNumberInLifeCycle], lifecycleNumber,weights.get(lifecycleNumber/numEventsPLifecycleDSS),real);
+                data[eventIndex] = new ValueBinIncrementalWeight(events[eventNumberInLifeCycle], lifecycleNumber,weights.get(lifecycleNumber)/numEventsPLifecycleDSS,real);
             }
         }
 
@@ -298,6 +290,8 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
         ArrayUtils.reverse(data);
 
         //Convert that VBIW array into a double[] of values, and a double[] of plotting position
+        double[] plottingPosArray = new double[eventsInAReal];
+        double cumWeight = endProb;
         for(int i = 0; i<data.length;i++){
             eventValuesArray[i] = data[i].getValue();
             cumWeight += data[i].getIncrimentalWeight();
@@ -307,7 +301,7 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
 
         //SAVE PDC with all data------
         PairedDataContainer freqPdc = vv.getPairedDataContainer();
-        freqPdc.numberOrdinates = newOrdinates;
+        freqPdc.numberOrdinates = plottingPosArray.length;
         freqPdc.numberCurves = 1;
         freqPdc.xOrdinates = plottingPosArray;
         freqPdc.yOrdinates = new double[][]{eventValuesArray};
@@ -323,7 +317,9 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
         //SAVE PDC with thin data-------
         //Thin this before we save it out
         Line myLine = new Line(plottingPosArray,eventValuesArray);
+        myLine.ConvertXordProbabilitiesToZScores();
         Line myThinLine = LineThinner.DouglasPeukerReduction(myLine,.01);
+        myThinLine.ConvertXordZScoresToProbabilities();
 
         //SAVE THIN PDC (change the d part of the pathname)
         PairedDataContainer thinFreqPdc = vv.getPairedDataContainer();
@@ -356,7 +352,7 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
         int numReals = allData == null ? 0 : allData.size();//number of realizations?
         int numEventsinReal = numReals <= 0 ? 0 : allData.get(0).length;// What's happening here
 
-        int realsPerWeightList = 1;
+
         int realizations = frm.getNumberRealizations();
         int totalLifecycles = frm.getNumberLifeCycles();
         int lifecyclesInReal = totalLifecycles/realizations;
@@ -367,9 +363,6 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
         }
 
         //Data Check
-        if(totWeight != 1){
-            frm.addMessage("Weight count does not add to 1");
-        }
         if(lifecyclesInReal!=weights.size()){
             frm.addMessage("Weight count does not match lifecycle count");
             return null;
@@ -402,7 +395,10 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
         //SAVE FULL PDCs
         PairedDataContainer freqPdc = vv.getFullFrequencyPairedData();
         PairedDataContainer freqThinPdc = vv.getThinFrequencyPairedData(); // Use this guy. Overwrite the data. Consider cleaning up extras from the initial longer array.
-        Line thinFreqLine = LineThinner.DouglasPeukerReduction(ConvertValueBinIncrementalWeight2Line(fullCurve), .1);
+        Line tmpLine = new Line(xOrdinates,yOrdinates);
+        tmpLine.ConvertXordProbabilitiesToZScores();
+        Line thinFreqLine = LineThinner.DouglasPeukerReduction(tmpLine, .1);
+        thinFreqLine.ConvertXordZScoresToProbabilities();
 
         freqThinPdc.numberOrdinates = thinFreqLine.getVerticesCount();
         freqThinPdc.numberCurves = 1;
@@ -415,11 +411,11 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
 
         int zeroOnSuccess = DssFileManagerImpl.getDssFileManager().write(freqThinPdc);
         if (zeroOnSuccess != 0) {
-            frm.addWarningMessage("Failed to save PD Output Variable Frequency to " + freqThinPdc.fileName + ":" + freqThinPdc.fullName + " rv=" + zeroOnSuccess);
+            frm.addWarningMessage("Failed to save PD Output Variable Frequency to " + freqThinPdc.fullName + " rv=" + zeroOnSuccess);
         }
         else{
-            frm.addMessage("The thinned line for " + freqThinPdc.fullName + " is " + freqThinPdc.numberOrdinates + "long.");
-            frm.addMessage("saved " + freqThinPdc.fullName + " to " + freqThinPdc.fileName + "!");
+            frm.addMessage("The thinned line for " + freqThinPdc.fullName + " is " + freqThinPdc.numberOrdinates + " points long.");
+            frm.addMessage("saved " + freqThinPdc.fullName);
         }
 
         freqPdc.numberOrdinates = fullSize;
@@ -433,10 +429,10 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
 
         zeroOnSuccess = DssFileManagerImpl.getDssFileManager().write(freqPdc);
         if (zeroOnSuccess != 0) {
-            frm.addWarningMessage("Failed to save PD Output Variable Frequency to " + freqPdc.fileName + ":" + freqPdc.fullName + " rv=" + zeroOnSuccess);
+            frm.addWarningMessage("Failed to save PD Output Variable Frequency to " + freqPdc.fullName + " rv=" + zeroOnSuccess);
         }
         else{
-            frm.addMessage("saved " + freqPdc.fullName + " to " + freqPdc.fileName + "!");
+            frm.addMessage("saved " + freqPdc.fullName + "!");
         }
 
         return fullCurve;
@@ -525,22 +521,9 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
 
         double[] maxs = new double[weights.size()];
         double[] mins = new double[weights.size()];
-        for(int i = 0; i<weights.size();i++){
+        for(int i = 0; i<confidenceLimitLocations.size();i++){
             maxs[i] = Double.MIN_VALUE;
             mins[i] = Double.MAX_VALUE;
-        }
-        for(ValueBinIncrementalWeight[] realization: allData){
-            Arrays.sort(realization);
-            int i = 0;
-            for(ValueBinIncrementalWeight event: realization){
-                if(maxs[i]<event.getValue()){
-                    maxs[i] = event.getValue();
-                }
-                if(mins[i]>event.getValue()){
-                    mins[i] = event.getValue();
-                }
-                i++;
-            }
         }
         //now max a mins represents the maximum value and minimum value for each realization
 
@@ -648,25 +631,5 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
     }
     private boolean isAppInstalled() {
             return true;
-    }
-    private Line ConvertValueBinIncrementalWeight2Line( ValueBinIncrementalWeight[] myVBIWArray){
-        ArrayList<Double> tempIncWeights = new ArrayList<Double>();
-        ArrayList<Double> tempValues = new ArrayList<Double>();
-        double[] arrayX = new double[myVBIWArray.length];
-        double[] arrayY = new double[myVBIWArray.length];
-
-        for(int i = 0; i< myVBIWArray.length; i++ ){
-            tempIncWeights.add(myVBIWArray[i].getIncrimentalWeight());
-            tempValues.add(myVBIWArray[i].getValue());}
-
-        double cumIncrementalWeight = 0;
-        for(int i = 0; i< myVBIWArray.length; i++) {
-            cumIncrementalWeight += tempIncWeights.get(i).doubleValue();
-            arrayX[i] = cumIncrementalWeight;
-            arrayY[i] = tempValues.get(i).doubleValue();
-        }
-
-        Line myLine = new Line(arrayX,arrayY);
-        return myLine;
     }
 }
