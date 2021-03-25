@@ -1,4 +1,6 @@
+import org.apache.commons.math3.util.Precision;
 import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class LineTest {
@@ -15,6 +17,20 @@ class LineTest {
             5929, 6084, 6241, 6400, 6561, 6724, 6889, 7056, 7225, 7396, 7569, 7744, 7921, 8100, 8281, 8464, 8649, 8836,
             9025, 9216, 9409, 9604, 9801};
     Line yIsXsquared = new Line(Xords,Yords);
+
+    double[] Probs = {
+            0.000001, 0.000002, 0.000002, 0.000008, 0.00001, 0.000553, 0.000553, 0.001133, 0.001502, 0.006706, 0.006707,
+            0.01191, 0.013187, 0.013327, 0.022663, 0.023064, 0.062009, 0.089604, 0.143421, 0.305975, 0.444454, 0.5
+    };
+    double[] Values = {
+            71.468, 71.168, 70.283, 69.815, 67.046, 67.027, 66.868, 66.78, 61.936, 61.935, 61.013, 60.964, 60.789, 58.94,
+            58.407, 56.734, 51.831, 46.823, 44.957, 37.905, 30.79,22.627
+    };
+    double[] Zees = {-4.753424309,-4.611382362,-4.611382362,-4.314451022,-4.264890794,-3.262074686,-3.262074686,-3.052954889
+            ,-2.967328313,-2.472637789,-2.472584494,-2.260020154,-2.22065998,-2.216547917,-2.001616435,-1.994220159,-1.538125223
+            ,-1.343197596,-1.065074981,-0.50729193,-0.139686112,0
+    };
+    Line someFuncWithProbs = new Line(Probs,Values);
 
     @Test
     void getPoint() {
@@ -45,5 +61,31 @@ class LineTest {
     void addPoint() {
         yIsXsquared.AddPoint(new Point(500,500));
         assertEquals(yIsXsquared.getVerticesCount(),101);
+    }
+    @Test
+    void convertXordProbabilitiesToZScores() {
+        someFuncWithProbs.ConvertXordProbabilitiesToZScores();
+        double[] zList = someFuncWithProbs.getXords();
+        double[] zListRound = new double[zList.length];
+        double[] actualRound = new double[zList.length];
+        for(int i =0; i< zListRound.length; i++){
+            zListRound[i]=Precision.round(zList[i],3);
+            actualRound[i]=Precision.round(Zees[i],3);
+        }
+        assertArrayEquals(actualRound, zListRound);
+    }
+    @Test
+    void convertXordZScoresToProbabilities() {
+        double[] expected = someFuncWithProbs.getXords();
+        someFuncWithProbs.ConvertXordProbabilitiesToZScores();
+        someFuncWithProbs.ConvertXordZScoresToProbabilities();
+        double[] actual = someFuncWithProbs.getXords();
+        double[] expectedRound = new double[expected.length];
+        double[] actualRound = new double[expected.length];
+        for(int i =0; i< expectedRound.length; i++){
+            expectedRound[i]=Precision.round(expected[i],3);
+            actualRound[i]=Precision.round(actual[i],3);
+        }
+        assertArrayEquals(actualRound, expectedRound);
     }
 }
