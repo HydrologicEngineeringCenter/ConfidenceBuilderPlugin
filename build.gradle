@@ -24,6 +24,7 @@ dependencies {
     implementation name: "rmadev"
     implementation name: "wat"
     implementation name: "watModel"
+    implementation 'org.apache.commons:commons-math3:3.5'
 }
 
 //TESTING--
@@ -64,6 +65,7 @@ jar {
     }
 }
 
+/*
 publishing {
     publications {
         ConfidenceBuilderArtifact(MavenPublication) {
@@ -86,3 +88,4 @@ publishing {
     }
 }
 publish.dependsOn jar
+*/
