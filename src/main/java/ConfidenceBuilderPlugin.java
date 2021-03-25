@@ -397,7 +397,7 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
         PairedDataContainer freqThinPdc = vv.getThinFrequencyPairedData(); // Use this guy. Overwrite the data. Consider cleaning up extras from the initial longer array.
         Line tmpLine = new Line(xOrdinates,yOrdinates);
         tmpLine.ConvertXordProbabilitiesToZScores();
-        Line thinFreqLine = LineThinner.DouglasPeukerReduction(tmpLine, .1);
+        Line thinFreqLine = LineThinner.DouglasPeukerReduction(tmpLine, .01);
         thinFreqLine.ConvertXordZScoresToProbabilities();
 
         freqThinPdc.numberOrdinates = thinFreqLine.getVerticesCount();
@@ -517,13 +517,17 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
  */
 
         //Step1 make sure the arrays in All data are sorted by value
-
-
-        double[] maxs = new double[weights.size()];
-        double[] mins = new double[weights.size()];
-        for(int i = 0; i<confidenceLimitLocations.size();i++){
-            maxs[i] = Double.MIN_VALUE;
-            mins[i] = Double.MAX_VALUE;
+        double max = Double.MIN_VALUE;
+        double min = Double.MAX_VALUE;
+        for(ValueBinIncrementalWeight[] realization:allData) {
+            for (ValueBinIncrementalWeight event : realization) {
+                if (event.getValue() > max) {
+                    max = event.getValue();
+                }
+                if (event.getValue() < min) {
+                    min = event.getValue();
+                }
+            }
         }
         //now max a mins represents the maximum value and minimum value for each realization
 
@@ -548,7 +552,7 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
         
         for(Double d:confidenceLimitLocations ){
             int failureCount=0;//          
-            verticalSlices.add(new HistDist(bincount,mins[ordcount],maxs[ordcount]));// This is actaully step 6
+            verticalSlices.add(new HistDist(bincount,max,min));// This is actaully step 6
             ValueBinIncrementalWeight prevVal = null;
             int realcount = 0;
             for(ValueBinIncrementalWeight[] realdata: allData){ //This block is step 7
