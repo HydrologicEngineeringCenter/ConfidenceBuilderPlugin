@@ -1,3 +1,5 @@
+import rma.stats.NormalDist;
+
 import java.util.ArrayList;
 
 public class Line {
@@ -47,5 +49,17 @@ public class Line {
                 Ords[i] = pointList.get(i).getY();}
         }
         return Ords;
-
-}}
+}
+    public void ConvertXordProbabilitiesToZScores(){
+        NormalDist StandardNormal = new NormalDist(0,1);
+        for(Point point:_pointsList){
+            point.setX(StandardNormal.invCDF(point.getX()));
+        }
+    }
+    public void ConvertXordZScoresToProbabilities(){
+        NormalDist StandardNormal = new NormalDist(0,1);
+        for(Point point:_pointsList){
+            point.setX(StandardNormal.getCDF(point.getX()));
+        }
+    }
+}
