@@ -352,22 +352,12 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
         int numReals = allData == null ? 0 : allData.size();//number of realizations?
         int numEventsinReal = numReals <= 0 ? 0 : allData.get(0).length;// What's happening here
 
-
-        int realizations = frm.getNumberRealizations();
-        int totalLifecycles = frm.getNumberLifeCycles();
-        int lifecyclesInReal = totalLifecycles/realizations;
         double totWeight = startProb;
         totWeight+=endProb;
         for (int k = 0; k < weights.size(); k++) {
             totWeight+=weights.get(k);
         }
 
-        //Data Check
-        if(lifecyclesInReal!=weights.size()){
-            frm.addMessage("Weight count does not match lifecycle count");
-            return null;
-        }
-        //Done Checking
 
         int fullSize = numReals * numEventsinReal;
         ValueBinIncrementalWeight[] fullCurve = new ValueBinIncrementalWeight[fullSize];
