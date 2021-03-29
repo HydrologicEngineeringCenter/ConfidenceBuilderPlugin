@@ -318,7 +318,7 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
         //Thin this before we save it out
         Line myLine = new Line(plottingPosArray,eventValuesArray);
         myLine.ConvertXordProbabilitiesToZScores();
-        Line myThinLine = LineThinner.DouglasPeukerReduction(myLine,.01);
+        Line myThinLine = LineThinner.DouglasPeukerReduction(myLine,.001);
         myThinLine.ConvertXordZScoresToProbabilities();
 
         //SAVE THIN PDC (change the d part of the pathname)
@@ -397,7 +397,7 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
         PairedDataContainer freqThinPdc = vv.getThinFrequencyPairedData(); // Use this guy. Overwrite the data. Consider cleaning up extras from the initial longer array.
         Line tmpLine = new Line(xOrdinates,yOrdinates);
         tmpLine.ConvertXordProbabilitiesToZScores();
-        Line thinFreqLine = LineThinner.DouglasPeukerReduction(tmpLine, .01);
+        Line thinFreqLine = LineThinner.DouglasPeukerReduction(tmpLine, .001);
         thinFreqLine.ConvertXordZScoresToProbabilities();
 
         freqThinPdc.numberOrdinates = thinFreqLine.getVerticesCount();
@@ -517,18 +517,6 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
  */
 
         //Step1 make sure the arrays in All data are sorted by value
-        double max = Double.MIN_VALUE;
-        double min = Double.MAX_VALUE;
-        for(ValueBinIncrementalWeight[] realization:allData) {
-            for (ValueBinIncrementalWeight event : realization) {
-                if (event.getValue() > max) {
-                    max = event.getValue();
-                }
-                if (event.getValue() < min) {
-                    min = event.getValue();
-                }
-            }
-        }
         //now max a mins represents the maximum value and minimum value for each realization
 
         /*
@@ -545,6 +533,19 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
 
          */
         //interpolate to find ploting position of interest and bin
+        double max = Double.MIN_VALUE;
+        double min = Double.MAX_VALUE;
+        for(ValueBinIncrementalWeight[] realization:allData) {
+            for (ValueBinIncrementalWeight event : realization) {
+                if (event.getValue() > max) {
+                    max = event.getValue();
+                }
+                if (event.getValue() < min) {
+                    min = event.getValue();
+                }
+            }
+        }
+
         List<HistDist> verticalSlices = new ArrayList<>(); //This is step 6
         int ordcount= 0;
         int bincount = (int)Math.ceil(Math.pow(2.0*allData.size(),1/3));
@@ -575,9 +576,11 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
                             double x2 = obj.getPlottingPosition();
                             double ret = y1+((d-x1)*((y1-y2)/(x1-x2))); //is it x1-d or is it d-x1?
                             //frm.addMessage("Max: " + verticalSlices.get(ordcount).getMax() + " Min: " + verticalSlices.get(ordcount).getMin() + " New Value:" + ret);
-                            if(!verticalSlices.get(ordcount).addObservation(ret)){
+                            if(!verticalSlices.get(ordcount).addObservation(ret))
+                            {
                                 failureCount++;
-                            }else{
+                            }
+                            else{
                                 if(realcount>100){
                                     verticalSlices.get(ordcount).testForConvergence(.05, .95, .1, .0001); //Step 8 Just needs to be done at the end. Not iteratively, could be line 603
                                 }
