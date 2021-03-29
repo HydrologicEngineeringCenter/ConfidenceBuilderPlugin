@@ -350,7 +350,7 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
     }
     protected ValueBinIncrementalWeight[] saveVariableFrequencyFull(OutputVariableImpl vv, List<ValueBinIncrementalWeight[]> allData, FrmSimulation frm, double endProb, double startProb, List<Double> weights) {
         int numReals = allData == null ? 0 : allData.size();//number of realizations?
-        int numEventsinReal = numReals <= 0 ? 0 : allData.get(0).length;// What's happening here
+        int numEventsInReal = numReals <= 0 ? 0 : allData.get(0).length;// What's happening here
 
         double totWeight = startProb;
         totWeight+=endProb;
@@ -358,15 +358,14 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
             totWeight+=weights.get(k);
         }
 
-
-        int fullSize = numReals * numEventsinReal;
+        int fullSize = numReals * numEventsInReal;
         ValueBinIncrementalWeight[] fullCurve = new ValueBinIncrementalWeight[fullSize];
 
         for (int i = 0; i < numReals; i++) {
                 ValueBinIncrementalWeight[] tmpReal = allData.get(i);
-                System.arraycopy(tmpReal, 0, fullCurve, i * numEventsinReal, numEventsinReal);
+                System.arraycopy(tmpReal, 0, fullCurve, i * numEventsInReal, numEventsInReal);
         }
-        allData = null;
+
         //sort the full curve
         Arrays.sort(fullCurve);
         ArrayUtils.reverse(fullCurve);
@@ -377,8 +376,8 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
         double cumWeight = endProb;
 
         for (int k = 0; k < fullSize; k++) {
-            cumWeight += fullCurve[k].getIncrimentalWeight();
-            xOrdinates[k] = (cumWeight-((fullCurve[k].getIncrimentalWeight())/2))/totWeight;
+            cumWeight += fullCurve[k].getIncrimentalWeight()/numReals;
+            xOrdinates[k] = (cumWeight-((fullCurve[k].getIncrimentalWeight())/numReals/2))/totWeight;
             yOrdinates[k] = fullCurve[k].getValue();
         }
 
