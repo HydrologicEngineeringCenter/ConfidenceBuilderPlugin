@@ -214,7 +214,7 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
                         int realization = 0;
                         for(PairedDataContainer pdci : pdcList){//build the frequency output
                             freqVar.setPairedDataContainer(pdci);
-                            ValueBinIncrementalWeight[] tmp = saveVariableFrequencyRealization(freqVar,pdci,myFRMSimulation,myProperties.getBinStartWeight(),myProperties.getBinEndWeights(),myProperties.getBinWeights(),realization);
+                            ValueBinIncrementalWeight[] tmp = saveVariableFrequencyRealization(freqVar,pdci,myFRMSimulation,myProperties,realization);
                             if(tmp==null) {
                                 myWatFrame.addMessage("aborting frequency curve calculation.");
                                 return false;
@@ -229,7 +229,7 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
                         ValueBinIncrementalWeight[] fullCurve = saveVariableFrequencyFull(freqVar, allData, myFRMSimulation,myProperties.getBinEndWeights(),myProperties.getBinStartWeight(),myProperties.getBinWeights());
                         if(allData!=null){
                             if(myProperties.getCI_Values()!=null){
-                                saveVariableFrequencyConfidenceLimits(freqVar, allData, myFRMSimulation,myProperties.getBinStartWeight(),myProperties.getBinEndWeights(),myProperties.getBinWeights(), myProperties.getCI_Values());
+                                saveVariableFrequencyConfidenceLimits(freqVar, allData, myFRMSimulation,myProperties);
                                 //write method to sort valuebinincremetalweight, xcoords cumulitive incrimental weight, y cords will be values
                             }
                         
@@ -248,7 +248,7 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
     }
 
 
-    private ValueBinIncrementalWeight[] saveVariableFrequencyRealization(OutputVariableImpl vv, PairedDataContainer outPdc, FrmSimulation frm,Double startProb, double endProb, List<Double> weights, int real){
+    private ValueBinIncrementalWeight[] saveVariableFrequencyRealization(OutputVariableImpl vv, PairedDataContainer outPdc, FrmSimulation frm,Properties props, int real){
         //BUILD DATA
         int numlifecycles = frm.getNumberLifeCycles();
         int numreals = frm.getNumberRealizations();
@@ -256,10 +256,10 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
         int numLifeCyclesDSS = outPdc.numberCurves; //should be number of lifecycles
 
         //total weight should equal one now.
-        double totWeight = startProb;
-        totWeight+=endProb;
-        for (int k = 0; k < weights.size(); k++) {
-            totWeight+=weights.get(k);
+        double totWeight = props.getBinStartWeight();
+        totWeight+=props.getBinEndWeights();
+        for (int k = 0; k < props.getBinWeights().size(); k++) {
+            totWeight+=props.getBinWeights().get(k);
         }
 
         //Checking for errors in Data--
@@ -267,7 +267,7 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
             frm.addMessage("there are more curves than lifecycles per real. Aborting");
             return null;
         }
-        if(numLifeCyclesDSS!=weights.size()){
+        if(numLifeCyclesDSS!=props.getBinWeights().size()){
             frm.addMessage("Weight count does not match lifecycle count");
             return null;
         }
@@ -281,7 +281,7 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
             double[] events = outPdc.yOrdinates[lifecycleNumber];
             for (int eventNumberInLifeCycle = 0; eventNumberInLifeCycle < numEventsPLifecycleDSS; eventNumberInLifeCycle++) { // event loop
                 int eventIndex = lifecycleNumber * numEventsPLifecycleDSS + eventNumberInLifeCycle;
-                data[eventIndex] = new ValueBinIncrementalWeight(events[eventNumberInLifeCycle], lifecycleNumber,weights.get(lifecycleNumber)/numEventsPLifecycleDSS,real);
+                data[eventIndex] = new ValueBinIncrementalWeight(events[eventNumberInLifeCycle], lifecycleNumber,props.getBinWeights().get(lifecycleNumber)/numEventsPLifecycleDSS,real);
             }
         }
 
@@ -291,7 +291,7 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
 
         //Convert that VBIW array into a double[] of values, and a double[] of plotting position
         double[] plottingPosArray = new double[eventsInAReal];
-        double cumWeight = endProb;
+        double cumWeight = props.getBinEndWeights();
         for(int i = 0; i<data.length;i++){
             eventValuesArray[i] = data[i].getValue();
             cumWeight += data[i].getIncrimentalWeight();
@@ -426,7 +426,7 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
 
         return fullCurve;
     }
-    public void saveVariableFrequencyConfidenceLimits(OutputVariableImpl vv, List<ValueBinIncrementalWeight[]> allData, FrmSimulation frm, double endProb, double startProb, List<Double> weights,List<Double> confidenceLimitLocations ){
+    public void saveVariableFrequencyConfidenceLimits(OutputVariableImpl vv, List<ValueBinIncrementalWeight[]> allData, FrmSimulation frm, Properties props ){
 /*        //sort by realization (ascending)
         ValueBinIncrementalWeight.setSortByValue(false);
         Arrays.sort(fullCurve);
@@ -540,7 +540,7 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
         int bincount = (int)Math.ceil(Math.pow(2.0*allData.size(),1/3));
         if(bincount<20){bincount=20;}
         
-        for(Double d:confidenceLimitLocations ){
+        for(Double d:props.getXOrds() ){
             int failureCount=0;//          
             verticalSlices.add(new HistDist(bincount,max,min));// This is actaully step 6
             ValueBinIncrementalWeight prevVal = null;
@@ -587,14 +587,14 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
             }
             ordcount++;  
         }
-        double[] locations = new double[confidenceLimitLocations.size()]; // This is the x values for confidence limits. unboxing list of double to array of double.
-        for(int i = 0; i<confidenceLimitLocations.size();i++){
-            locations[i] = confidenceLimitLocations.get(i);
+        double[] locations = new double[props.getXOrds().size()]; // This is the x values for confidence limits. unboxing list of double to array of double.
+        for(int i = 0; i<props.getXOrds().size();i++){
+            locations[i] = props.getXOrds().get(i);
         }
                 //SAVE FULL PDCs
             
-        for(double o : confidenceLimitLocations){ //Computing the confidence interval Step9
-            double[] vals = new double[confidenceLimitLocations.size()];
+        for(double o : props.getXOrds()){ //Computing the confidence interval Step9
+            double[] vals = new double[props.getXOrds().size()];
             for(int i= 0; i<verticalSlices.size();i++){
                 vals[i] = verticalSlices.get(i).invCDF(o);
             }
