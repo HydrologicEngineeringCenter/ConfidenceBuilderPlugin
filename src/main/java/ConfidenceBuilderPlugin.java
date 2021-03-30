@@ -521,28 +521,39 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
         10. Write conf intervals to disc
 
          */
-        double max = Double.MIN_VALUE;
-        double min = Double.MAX_VALUE;
-        for (ValueBinIncrementalWeight[] realization : allData) {
-            for (ValueBinIncrementalWeight event : realization) {
-                if (event.getValue() > max) {
-                    max = event.getValue();
-                }
-                if (event.getValue() < min) {
-                    min = event.getValue();
+
+        double[] max = new double[props.getXOrds().size()];
+        double[] min = new double[props.getXOrds().size()];
+        for(int i=0; i<max.length; i++){
+            max[i] = Double.MIN_VALUE;
+            min[i] = Double.MIN_VALUE;
+        }
+        for( int i=0; i<props.getXOrds().size();i++){
+            for (ValueBinIncrementalWeight[] realization : allData) {
+                for (ValueBinIncrementalWeight event : realization) {
+                    if(event.getPlottingPosition() <= props.getXOrds().get(i)){
+                        if (event.getValue() > max[i]) {
+                            max[i] = event.getValue();
+                        }
+                        if (event.getValue() < min[i]) {
+                            min[i] = event.getValue();
+                        }
+                        break;
+                    }
+
                 }
             }
         }
+
         List<HistDist> verticalSlices = new ArrayList<>(); //This is step 6
         int ordcount = 0;
         int bincount = (int) Math.ceil(Math.pow(2.0 * allData.size(), 1 / 3));
         if (bincount < 20) {
             bincount = 20;
         }
-
-        for (Double location : props.getXOrds()) {
+        for(int i=0; i<props.getXOrds().size(); i++){
             int failureCount = 0;//
-            verticalSlices.add(new HistDist(bincount, max, min));// This is actaully step 6
+            verticalSlices.add(new HistDist(bincount, min[i], max[i]));// This is actaully step 6
             ValueBinIncrementalWeight prevVal = null;
             int realcount = 0;
             for (ValueBinIncrementalWeight[] realization : allData) { //This block is step 7
@@ -550,7 +561,7 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
                 boolean foundVal = false;
                 for (ValueBinIncrementalWeight event : realization) {
                     //should be ascending.
-                    if (event.getPlottingPosition() <= location) {
+                    if (event.getPlottingPosition() <= props.getXOrds().get(i)) {
                         foundVal = true;
                         //now figure out how to interpolate...
                         if (prevVal == null) {
@@ -562,7 +573,7 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
                             //-log(-log(p));
                             double x1 = prevVal.getPlottingPosition();
                             double x2 = event.getPlottingPosition();
-                            double ret = y1 + ((location - x1) * ((y1 - y2) / (x1 - x2))); //is it x1-d or is it d-x1?
+                            double ret = y1 + ((props.getXOrds().get(i) - x1) * ((y1 - y2) / (x1 - x2))); //is it x1-d or is it d-x1?
                             //frm.addMessage("Max: " + verticalSlices.get(ordcount).getMax() + " Min: " + verticalSlices.get(ordcount).getMin() + " New Value:" + ret);
                             verticalSlices.get(ordcount).addObservation(ret);
                         }
@@ -571,12 +582,12 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
                     prevVal = event;
                 }
                 if (foundVal == false) {
-                    frm.addMessage("Did not find a value for ord " + ordcount + " which has probability " + location + " on realization " + realcount + " for location " + vv.getName());
+                    frm.addMessage("Did not find a value for ord " + ordcount + " which has probability " + props.getXOrds().get(i) + " on realization " + realcount + " for location " + vv.getName());
                 }
             }
-            ordcount++;
             boolean pass = verticalSlices.get(ordcount).testForConvergence(.05, .95, .1, .0001);
-            frm.addMessage("Confidence Interval for X ordinate: " + location + " was " + pass);
+            frm.addMessage("Confidence Interval for X ordinate: " + props.getXOrds().get(i) + " was " + pass);
+            ordcount++;
         }
 
         double[] xOrds = new double[props.getXOrds().size()]; // This is the x values for confidence limits. unboxing list of double to array of double.
