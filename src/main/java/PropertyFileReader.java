@@ -29,7 +29,7 @@ public class PropertyFileReader {
                 if (tmp[0] .equals( "XOrds")) {
                     for (String s : tmp) {
                             if (s.equals("XOrds")) { continue;}
-                            _xOrds.add(1 - Double.parseDouble(s));
+                            _xOrds.add( Double.parseDouble(s));
                         }
                     }
                 if (tmp[0] .equals( "CI_Vals")){

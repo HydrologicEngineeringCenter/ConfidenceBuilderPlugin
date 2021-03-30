@@ -8,7 +8,7 @@ class PropertyFileReaderTest {
     String currentDirectory = System.getProperty("user.dir");
     String propertiesPath = currentDirectory + "\\ConfidenceBuilder.props";
     Properties propertiesTest = PropertyFileReader.Read(propertiesPath);
-    ArrayList<Double> xOrds = new ArrayList<>(Arrays.asList(1 - 0.5, 1 - 0.8, 1 - 0.9, 1 - 0.95, 1 - 0.98, 1 - 0.99, 1 - 0.995, 1 - 0.998));
+    ArrayList<Double> xOrds = new ArrayList<>(Arrays.asList( 0.5,  0.8,  0.9,  0.95,  0.98,  0.99,  0.995,  0.998));
     ArrayList<Double> cI_Vals = new ArrayList<>(Arrays.asList(.975, .025));
     private double _binStartWeight = 0.000000000000000;
     private ArrayList<Double> _binWeights = new ArrayList<>(Arrays.asList(0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1));
