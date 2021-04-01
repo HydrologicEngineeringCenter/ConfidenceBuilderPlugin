@@ -1,3 +1,8 @@
+//READ THIS IS YOU'RE STRUGGLING TO BUILD
+// Make sure your IDE is set up with Java SDK 15. I'm using corretto-15
+// Make sure gradle is using the same SDK. This is set in IDEA File|Settings|Build Tools| Gradle
+
+
 plugins {
     id 'java'
     id 'maven-publish'
