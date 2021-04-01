@@ -521,12 +521,12 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
         10. Write conf intervals to disc
 
          */
-
+        // This process could be broken out into a method.
         double[] max = new double[props.getXOrds().size()];
         double[] min = new double[props.getXOrds().size()];
         for(int i=0; i<max.length; i++){
             max[i] = Double.MIN_VALUE;
-            min[i] = Double.MIN_VALUE;
+            min[i] = Double.MAX_VALUE;
         }
         for( int i=0; i<props.getXOrds().size();i++){
             for (ValueBinIncrementalWeight[] realization : allData) {
@@ -547,12 +547,11 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
 
         List<HistDist> verticalSlices = new ArrayList<>(); //This is step 6
         int ordcount = 0;
-        int bincount = (int) Math.ceil(Math.pow(2.0 * allData.size(), 1 / 3));
+        int bincount = (int) Math.ceil(Math.pow(2.0 * allData.size(), 1 / 3)); //Seeems strange. Maybe should be using sturges formula {1 + log base2 of n} // or Doanes formula probably better not assuming normal
         if (bincount < 20) {
             bincount = 20;
         }
         for(int i=0; i<props.getXOrds().size(); i++){
-            int failureCount = 0;//
             verticalSlices.add(new HistDist(bincount, min[i], max[i]));// This is actaully step 6
             ValueBinIncrementalWeight prevVal = null;
             int realcount = 0;
@@ -598,6 +597,12 @@ public class ConfidenceBuilderPlugin extends AbstractPlugin implements SimpleWat
         double[] vals = new double[verticalSlices.size()];
         for (double confidenceLimit : props.getCI_Values()) {
             for (int i = 0; i < verticalSlices.size(); i++) {
+                if(props.getXOrds().get(i) == .00001 && confidenceLimit == .975){
+                    frm.addMessage("ok");
+                }
+                if( props.getXOrds().get(i) == .0001 && confidenceLimit == .975){
+                    frm.addMessage("ok");
+                }
                 vals[i] = verticalSlices.get(i).invCDF(confidenceLimit);
             }
 
