@@ -70,7 +70,6 @@ jar {
     }
 }
 
-/*
 publishing {
     publications {
         ConfidenceBuilderArtifact(MavenPublication) {
@@ -81,16 +80,10 @@ publishing {
     }
     repositories {
         maven {
-            credentials {
-                username = "$mavenUser"
-                password = "$mavenPassword"
-            }
-
-            def releasesRepoUrl = "https://www.hec.usace.army.mil/nexus/repository/maven-releases/"
-            def snapshotsRepoUrl = "https://www.hec.usace.army.mil/nexus/repository/maven-snapshots/"
+            def releasesRepoUrl = "https://www.hec.usace.army.mil/nexus/repository/WAT_Plugins/"
+            def snapshotsRepoUrl = "https://www.hec.usace.army.mil/nexus/repository/WAT_Plugins/"
             url = version.endsWith("SNAPSHOT") ? snapshotsRepoUrl : releasesRepoUrl
         }
     }
 }
 publish.dependsOn jar
-*/
