@@ -1,5 +1,5 @@
 # main.java
-A plugin for building confidence intervals in HEC-WAT
+A plugin for building confidence intervals in HEC-WAT.
 
 
 # Properties file
