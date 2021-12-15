@@ -50,6 +50,11 @@ public class Line {
         }
         return Ords;
 }
+    public void ConvertToNonExceedenceProbability(){
+        for(Point point: _pointsList){
+            point.setX(1-point.getX());
+        }
+    }
     public void ConvertXordProbabilitiesToZScores(){
         NormalDist StandardNormal = new NormalDist(0,1);
         for(Point point:_pointsList){
