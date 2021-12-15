@@ -43,6 +43,9 @@ public class LineThinner {
         //Implementation based on the description of the method here: http://bost.ocks.org/mike/simplify/
 
         int removeLimit = (myLine.getVerticesCount()) - numToKeep;
+        if(removeLimit<0){
+            return myLine;
+        }
         int minIndex = 1;
         for(int i = 0; i < removeLimit; i++) {
             float minArea = Polygon.AreaOfTriangle(myLine.getPoint(0), myLine.getPoint(1), myLine.getPoint(2)); // This is the baseline we'll start our first comparison to.
