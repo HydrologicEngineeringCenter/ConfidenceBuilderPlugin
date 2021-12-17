@@ -23,10 +23,13 @@ public class ChartPreProcessor {
     void writeToExcel(){
         for(String locations: locationsToChart){
             try {
-                FileWriter myFileWriter = new FileWriter(_outputDir + locations + ".csv");
+                FileWriter myFileWriter = new FileWriter(_outputDir + locations.replaceAll(":","-") + ".csv");
                 HecPairedData pairedDataA = new HecPairedData();
                 pairedDataA.setDSSFileName(_fileName);
-                Vector<DSSPathname> chartSerieses = getPathnamesForChart(locations,252);
+                if(locations.equals("Trinity River Main RS 433.855-Ground - Stage - Hours over thresh")){
+//                    locations = "Trinity River Main RS 433.855-Ground - Stage - Hours over threshold 365.0";
+                }
+                Vector<DSSPathname> chartSerieses = getPathnamesForChart(locations,248);
                 for(DSSPathname series : chartSerieses){
                     PairedDataContainer pdcA = new PairedDataContainer();
                     pdcA.fullName = series.getPathname();
@@ -56,9 +59,18 @@ public class ChartPreProcessor {
 
     public Vector<DSSPathname> getPathnamesForChart(String ePart, int numRealsToChart) {
         Vector<String> chartSeriesList = new Vector<>();
-        String[] recordsToCollect = new String[]{"Realization Thin","0.975 Confidence Limit","0.025 Confidence Limit","Frequency Thin"};
+        String[] recordsToCollect = new String[]{
+                "Realization Thin",
+                "0.975 Confidence Limit",
+                "0.025 Confidence Limit",
+                "0.95 Confidence Limit",
+                "0.05 Confidence Limit",
+                "0.925 Confidence Limit",
+                "0.075 Confidence Limit",
+                "Frequency Thin"};
         HecDataManager dssManager = new HecDataManager();
         dssManager.setDSSFileName(_fileName);
+        if(ePart.length() > 62){ePart=ePart.substring(0,62);}
         for(String recordType : recordsToCollect){
             String pathWithWildChars = "/*/*/*/*" + recordType + "*/*"+ ePart + "*/*/";
             String[] pathnames = dssManager.getCatalog(false, pathWithWildChars);

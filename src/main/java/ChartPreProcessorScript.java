@@ -5,9 +5,9 @@ import java.util.Vector;
 
 public class ChartPreProcessorScript {
     public static void main(String[] args){
-        String filePath = "C:\\Users\\Brenn\\Downloads\\Existing_Conditions-Trinity (1).dss";
+        String filePath = "C:\\Users\\Brenn\\Downloads\\Existing_Conditions-Trinity (2).dss";
         Collection<String> locationsToChart = ChartPreProcessor.getAllSavedLocations(filePath);
-        ChartPreProcessor tool = new ChartPreProcessor(filePath,locationsToChart,500,"C:\\Temp\\FinalChartsForNRC\\");
+        ChartPreProcessor tool = new ChartPreProcessor(filePath,locationsToChart,500,"C:\\Temp\\ChartsForNRCExtraConf\\");
         tool.writeToExcel();
     }
 }
